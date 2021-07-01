@@ -3,6 +3,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Parse.Abstractions.Infrastructure;
 using Parse.Abstractions.Platform.Objects;
 
 namespace Parse.Abstractions.Platform.Queries
@@ -13,6 +14,6 @@ namespace Parse.Abstractions.Platform.Queries
 
         Task<int> CountAsync<T>(ParseQuery<T> query, ParseUser user, CancellationToken cancellationToken = default) where T : ParseObject;
 
-        Task<IObjectState> FirstAsync<T>(ParseQuery<T> query, ParseUser user, CancellationToken cancellationToken = default) where T : ParseObject;
+        Task<IObjectState> FirstAsync<T>(ParseQuery<T> query, IServiceHub serviceHub, ParseUser user, CancellationToken cancellationToken = default) where T : ParseObject;
     }
 }

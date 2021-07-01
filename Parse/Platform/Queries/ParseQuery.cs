@@ -633,7 +633,7 @@ namespace Parse
         public Task<T> FirstOrDefaultAsync(CancellationToken cancellationToken)
         {
             EnsureNotInstallationQuery();
-            return Services.QueryController.FirstAsync(this, Services.GetCurrentUser(), cancellationToken).OnSuccess(task => task.Result is IObjectState state && state is { } ? Services.GenerateObjectFromState<T>(state, ClassName) : default);
+            return Services.QueryController.FirstAsync(this, Services, Services.GetCurrentUser(), cancellationToken).OnSuccess(task => task.Result is IObjectState state && state is { } ? Services.GenerateObjectFromState<T>(state, ClassName) : default);
         }
 
         /// <summary>
