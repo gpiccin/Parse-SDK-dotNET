@@ -63,19 +63,19 @@ namespace Parse
         }
 
         public static async Task<ParseObject> SaveAsync(this IParseObject parseObject)
-            => await SaveAsync(parseObject, parseObject.GetParseClient());
+            => await SaveAsync(parseObject, parseObject.GetParseClient(), null, null);
 
-        public static async Task<ParseObject> SaveAsync(this IParseObject customObject, ParseClient parseClient)
+        private static async Task<ParseObject> SaveAsync(this IParseObject customObject, ParseClient parseClient, IParseObject parentCustomObject, ParseObject parentParseObject)
         {
             var keyProperty = customObject.GetKeyProperty();
 
             if (keyProperty == null)
                 throw new NullReferenceException($"You must define one property with the ParseKeyAttribute.");
 
-            var parseObject = await customObject.GetByPropertyAsync(parseClient, keyProperty.Name);
+            var parseCustomObject = await customObject.GetByPropertyAsync(parseClient, keyProperty.Name);
 
-            if (parseObject == null)
-                parseObject = customObject.CreateEmptyParseObject(parseClient);
+            if (parseCustomObject == null)
+                parseCustomObject = customObject.CreateEmptyParseObject(parseClient);
 
             foreach (var property in customObject.GetType().GetProperties().Where(p => p.CanRead))
             {
@@ -83,14 +83,18 @@ namespace Parse
 
                 if (property.PropertyType.IsEnum)
                 {
-                    parseObject.Set(key, (int) value);
+                    parseCustomObject.Set(key, (int) value);
                     continue;
                 }
 
                 if (value is IParseObject innerParseObject)
                 {
-                    var reference = await innerParseObject.SaveAsync(parseClient);
-                    parseObject.Set(key, reference);
+                    var reference = parentParseObject;
+
+                    if (value != parentCustomObject)
+                        reference = await innerParseObject.SaveAsync(parseClient, customObject, parseCustomObject);
+
+                    parseCustomObject.Set(key, reference);
                     continue;
                 }
 
@@ -98,11 +102,11 @@ namespace Parse
                         property.PropertyType.GetGenericTypeDefinition() == typeof(List<>) &&
                         property.PropertyType.GenericTypeArguments.SelectMany(t => t.GetInterfaces()).Any(i => i == typeof(IParseObject)))
                 {
-                    var relation = parseObject.GetRelation<ParseObject>(key);
+                    var relation = parseCustomObject.GetRelation<ParseObject>(key);
 
                     foreach (var childParseObject in (IEnumerable<IParseObject>) value)
                     {
-                        relation.Add(await childParseObject.SaveAsync(parseClient));
+                        relation.Add(await childParseObject.SaveAsync(parseClient, customObject, parseCustomObject));
                     }
 
                     continue;
@@ -111,11 +115,11 @@ namespace Parse
                 if (!ParseDataEncoder.Validate(value))
                     continue;
 
-                parseObject.Set(key, value);
+                parseCustomObject.Set(key, value);
             }
 
-            await parseObject.SaveAsync();
-            return parseObject;
+            await parseCustomObject.SaveAsync();
+            return parseCustomObject;
         }
     }
 }
