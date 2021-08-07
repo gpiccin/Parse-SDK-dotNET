@@ -94,7 +94,8 @@ namespace Parse.Infrastructure.Execution
 
                     try
                     {
-                        totalLength = responseStream.Length;
+                        if (responseStream.CanSeek)
+                            totalLength = responseStream.Length;
                     }
                     catch { };
 

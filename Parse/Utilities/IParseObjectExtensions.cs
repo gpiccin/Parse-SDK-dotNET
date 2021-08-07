@@ -65,14 +65,23 @@ namespace Parse
         public static async Task<ParseObject> SaveAsync(this IParseObject parseObject)
             => await SaveAsync(parseObject, parseObject.GetParseClient(), null, null);
 
-        private static async Task<ParseObject> SaveAsync(this IParseObject customObject, ParseClient parseClient, IParseObject parentCustomObject, ParseObject parentParseObject)
+        private static async Task<ParseObject> GetByKeyPropertyAsync(this IParseObject customObject, ParseClient parseClient)
         {
             var keyProperty = customObject.GetKeyProperty();
 
             if (keyProperty == null)
                 throw new NullReferenceException($"You must define one property with the ParseKeyAttribute.");
 
-            var parseCustomObject = await customObject.GetByPropertyAsync(parseClient, keyProperty.Name);
+            return await customObject.GetByPropertyAsync(parseClient, keyProperty.Name);
+        }
+
+        private static async Task<ParseObject> SaveAsync(this IParseObject customObject, ParseClient parseClient,
+            IParseObject parentCustomObject, ParseObject parentParseObject, bool justReturnIfExists = false)
+        {
+            var parseCustomObject = await GetByKeyPropertyAsync(customObject, parseClient);
+
+            if (justReturnIfExists && parseCustomObject != null)
+                return parseCustomObject;
 
             if (parseCustomObject == null)
                 parseCustomObject = customObject.CreateEmptyParseObject(parseClient);
@@ -87,12 +96,18 @@ namespace Parse
                     continue;
                 }
 
+                if (value is ParseObject relatedParseObject)
+                {
+                    parseCustomObject.Set(key, relatedParseObject);
+                    continue;
+                }
+
                 if (value is IParseObject innerParseObject)
                 {
                     var reference = parentParseObject;
 
                     if (value != parentCustomObject)
-                        reference = await innerParseObject.SaveAsync(parseClient, customObject, parseCustomObject);
+                        reference = await innerParseObject.SaveAsync(parseClient, customObject, parseCustomObject, true);
 
                     parseCustomObject.Set(key, reference);
                     continue;
@@ -106,7 +121,7 @@ namespace Parse
 
                     foreach (var childParseObject in (IEnumerable<IParseObject>) value)
                     {
-                        relation.Add(await childParseObject.SaveAsync(parseClient, customObject, parseCustomObject));
+                        relation.Add(await childParseObject.SaveAsync(parseClient, customObject, parseCustomObject, true));
                     }
 
                     continue;
